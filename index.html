@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cofre</title>
+<meta name="description" content="Criptografa e descriptografa textos e arquivos em três camadas, direto no seu aparelho.">
+<meta name="theme-color" content="#E8EEEA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#070D0A" media="(prefers-color-scheme: dark)">
+<meta name="referrer" content="no-referrer">
+<!-- Trava de segurança: a página não consegue enviar nada para a internet -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #E8EEEA;
+    --sup: #FFFFFF;
+    --tinta: #101A15;
+    --suave: #52615A;
+    --linha: #C5D0CA;
+    --acento: #1F6B4A;
+    --acento-tx: #FFFFFF;
+    --prata: #5E7D6E;
+    --erro: #B3261E;
+    --ok: #1F6B3A;
+    --foco: #1D5FD1;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif", Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #070D0A;
+      --sup: #0F1A14;
+      --tinta: #E3ECE6;
+      --suave: #8FA297;
+      --linha: #22332A;
+      --acento: #3FC37A;
+      --acento-tx: #04120A;
+      --prata: #A9BFB2;
+      --erro: #F2877F;
+      --ok: #6FDDA0;
+      --foco: #8FB2F7;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--tinta);
+    font: 1rem/1.45 var(--sans);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .app { max-width: 34rem; margin: 0 auto; padding: 1.25rem 1.1rem 2.5rem; }
+
+  .topo { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; margin-bottom: 1.25rem; }
+  h1 { font: 600 2.1rem/1.05 var(--serif); letter-spacing: -.01em; margin: 0; }
+  .sub { margin: .35rem 0 0; color: var(--suave); font-size: .95rem; max-width: 24rem; }
+  #instalar {
+    flex: none; min-height: 2.5rem; padding: 0 .9rem; border-radius: .6rem;
+    border: 1px solid var(--linha); background: var(--sup); color: var(--tinta);
+    font: 600 .9rem var(--sans); cursor: pointer;
+  }
+
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  :focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; }
+
+  /* Ação: criptografar / descriptografar */
+  .modo { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; padding: .3rem; background: var(--sup); border: 1px solid var(--linha); border-radius: .9rem; }
+  .modo button {
+    min-height: 3rem; border: 0; border-radius: .65rem; background: transparent;
+    font-weight: 600; color: var(--suave);
+  }
+  .modo button[aria-selected="true"] { background: var(--tinta); color: var(--bg); }
+
+  /* Tipo: texto / arquivo */
+  .tipo { display: flex; gap: 1.4rem; margin: 1.1rem 0 .9rem; border-bottom: 1px solid var(--linha); }
+  .tipo button {
+    min-height: 2.75rem; padding: 0 .1rem; border: 0; background: transparent; color: var(--suave);
+    font-weight: 600; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  }
+  .tipo button[aria-selected="true"] { color: var(--tinta); border-bottom-color: var(--acento); }
+
+  label, legend { display: block; font-weight: 600; margin: 1rem 0 .4rem; padding: 0; }
+  textarea, input[type="password"], input[type="text"] {
+    width: 100%; background: var(--sup); border: 1px solid var(--linha); border-radius: .7rem;
+    padding: .8rem .85rem; min-height: 3rem;
+  }
+  textarea { resize: vertical; }
+  .mono { font-family: var(--mono); font-size: .82rem; word-break: break-all; line-height: 1.5; }
+  input[type="file"] { width: 100%; padding: .7rem; background: var(--sup); border: 1px dashed var(--suave); border-radius: .7rem; }
+  .dica { margin: .4rem 0 0; color: var(--suave); font-size: .88rem; }
+
+  .linha { display: flex; gap: .5rem; }
+  .linha > input { flex: 1; min-width: 0; }
+  .sec {
+    flex: none; min-height: 3rem; padding: 0 1rem; border-radius: .7rem;
+    border: 1px solid var(--linha); background: var(--sup); font-weight: 600;
+  }
+
+  .forca { display: flex; align-items: center; gap: .6rem; margin-top: .5rem; }
+  .barras { display: grid; grid-template-columns: repeat(4, 1fr); gap: .25rem; flex: 1; }
+  .barras i { height: .35rem; border-radius: 1rem; background: var(--linha); }
+  .forca[data-n="1"] i:nth-child(-n+1),
+  .forca[data-n="2"] i:nth-child(-n+2),
+  .forca[data-n="3"] i:nth-child(-n+3),
+  .forca[data-n="4"] i:nth-child(-n+4) { background: var(--acento); }
+  .forca span { font-size: .85rem; color: var(--suave); min-width: 6rem; text-align: right; }
+
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  .niveis { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .niveis label { margin: 0; font-weight: 400; cursor: pointer; }
+  .niveis input { position: absolute; opacity: 0; pointer-events: none; }
+  .niveis span.cx {
+    display: block; padding: .7rem .8rem; background: var(--sup); border: 1px solid var(--linha); border-radius: .7rem;
+  }
+  .niveis b { display: block; }
+  .niveis small { color: var(--suave); }
+  .niveis input:checked + span.cx { border-color: var(--acento); box-shadow: inset 0 0 0 1px var(--acento); }
+  .niveis input:focus-visible + span.cx { outline: 3px solid var(--foco); outline-offset: 2px; }
+
+  .principal {
+    width: 100%; min-height: 3.4rem; margin-top: 1.4rem; border: 0; border-radius: .9rem;
+    background: var(--acento); color: var(--acento-tx); font-weight: 700; font-size: 1.05rem;
+  }
+  .principal:disabled { opacity: .6; cursor: progress; }
+
+  /* O selo: cada anel é uma etapa da criptografia */
+  .lacre { display: grid; justify-items: center; gap: .5rem; margin: 1.6rem 0 .4rem; text-align: center; }
+  .lacre svg { width: 7.5rem; height: 7.5rem; overflow: visible; }
+  .anel { fill: none; stroke: var(--linha); stroke-width: 5; }
+  .prog {
+    fill: none; stroke-width: 5; stroke-linecap: round;
+    stroke-dasharray: 100; stroke-dashoffset: 100;
+    transition: stroke-dashoffset .7s cubic-bezier(.3, .7, .2, 1);
+  }
+  .prog.p0 { stroke: var(--prata); }
+  .prog.l { stroke: var(--acento); }
+  .prog.cheio { stroke-dashoffset: 0; }
+  .prog.girando { stroke-dashoffset: 70; transform-box: fill-box; transform-origin: center; animation: girar 1.1s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+  .cadeado { fill: none; stroke: var(--suave); stroke-width: 4; stroke-linecap: round; transition: stroke .4s; }
+  .cadeado .corpo { fill: var(--suave); stroke: none; transition: fill .4s; }
+  .cadeado .furo { fill: var(--sup); stroke: none; }
+  .lacre svg[data-fase="4"] .cadeado { stroke: var(--acento); }
+  .lacre svg[data-fase="4"] .cadeado .corpo { fill: var(--acento); }
+  #status { margin: 0; min-height: 1.5rem; font: 500 1.02rem var(--serif); color: var(--suave); }
+  #status.erro { color: var(--erro); font-family: var(--sans); font-weight: 600; }
+  #status.ok { color: var(--ok); font-weight: 600; }
+
+  #saida { margin-top: .6rem; }
+  #infoSaida { margin: 0 0 .6rem; color: var(--suave); }
+  .acoes { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+  .acoes .sec { flex: 1 1 8rem; }
+  .acoes .forte { background: var(--tinta); color: var(--bg); border-color: var(--tinta); }
+
+  .aviso { margin: 1rem 0 0; padding: .8rem .9rem; border-radius: .7rem; border: 1px solid var(--erro); color: var(--erro); font-weight: 600; }
+  footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--linha); color: var(--suave); font-size: .88rem; }
+  footer p { margin: 0 0 .5rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .prog, .cadeado, .cadeado .corpo { transition: none; }
+    .prog.girando { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="topo">
+    <div>
+      <h1>Cofre</h1>
+      <p class="sub">Criptografia em três camadas, feita só no seu aparelho.</p>
+    </div>
+    <button id="instalar" type="button" hidden>Instalar</button>
+  </header>
+
+  <div id="avisoSeguro" class="aviso" role="alert" hidden>
+    Este navegador não liberou a criptografia. Abra o app por um endereço que comece com https://.
+  </div>
+
+  <div class="modo" role="tablist" aria-label="O que você quer fazer">
+    <button type="button" role="tab" data-modo="cifrar" aria-selected="true">Criptografar</button>
+    <button type="button" role="tab" data-modo="decifrar" aria-selected="false">Descriptografar</button>
+  </div>
+
+  <div class="tipo" role="tablist" aria-label="O que será processado">
+    <button type="button" role="tab" data-tipo="texto" aria-selected="true">Texto</button>
+    <button type="button" role="tab" data-tipo="arquivo" aria-selected="false">Arquivo</button>
+  </div>
+
+  <section id="campoTexto">
+    <label for="entrada" id="rotEntrada">Texto para criptografar</label>
+    <textarea id="entrada" rows="5" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"></textarea>
+  </section>
+
+  <section id="campoArquivo" hidden>
+    <label for="arquivo" id="rotArquivo">Arquivo para criptografar</label>
+    <input type="file" id="arquivo">
+    <p class="dica">Tamanho máximo: 50 MB.</p>
+  </section>
+
+  <label for="senha">Senha</label>
+  <div class="linha">
+    <input type="password" id="senha" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button type="button" class="sec" id="ver" aria-pressed="false">Mostrar</button>
+  </div>
+  <div class="forca" id="forca" data-n="0" hidden>
+    <div class="barras" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <span id="forcaTxt"></span>
+  </div>
+  <p class="dica" id="dicaSenha" hidden>Uma frase longa vale mais do que símbolos. Se esquecer a senha, não há como recuperar nada.</p>
+
+  <div id="blocoRepetir">
+    <label for="senha2">Repita a senha</label>
+    <input type="password" id="senha2" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false">
+  </div>
+
+  <fieldset id="blocoNivel">
+    <legend>Nível de segurança</legend>
+    <div class="niveis">
+      <label><input type="radio" name="nivel" value="1" checked><span class="cx"><b>Forte</b><small>Alguns segundos</small></span></label>
+      <label><input type="radio" name="nivel" value="2"><span class="cx"><b>Máximo</b><small>Até 30 s no celular</small></span></label>
+    </div>
+  </fieldset>
+
+  <button type="button" class="principal" id="ir">Criptografar</button>
+
+  <div class="lacre" aria-live="polite">
+    <svg id="lacre" viewBox="0 0 120 120" data-fase="idle" role="img" aria-label="Selo que mostra o andamento">
+      <g transform="rotate(-90 60 60)">
+        <circle class="anel" cx="60" cy="60" r="54"/>
+        <circle class="anel" cx="60" cy="60" r="44"/>
+        <circle class="anel" cx="60" cy="60" r="34"/>
+        <circle class="anel" cx="60" cy="60" r="24"/>
+        <circle id="p0" class="prog p0" cx="60" cy="60" r="54" pathLength="100"/>
+        <circle id="p1" class="prog l" cx="60" cy="60" r="44" pathLength="100"/>
+        <circle id="p2" class="prog l" cx="60" cy="60" r="34" pathLength="100"/>
+        <circle id="p3" class="prog l" cx="60" cy="60" r="24" pathLength="100"/>
+      </g>
+      <g class="cadeado">
+        <path d="M52 58 V53 a8 8 0 0 1 16 0 V58"/>
+        <rect class="corpo" x="47" y="57" width="26" height="19" rx="3.5"/>
+        <circle class="furo" cx="60" cy="65" r="2.6"/>
+      </g>
+    </svg>
+    <p id="status"></p>
+  </div>
+
+  <section id="saida" hidden>
+    <label for="resultado" id="rotSaida">Resultado</label>
+    <p id="infoSaida" hidden></p>
+    <textarea id="resultado" class="mono" rows="6" readonly spellcheck="false"></textarea>
+    <div class="acoes">
+      <button type="button" class="sec forte" id="copiar">Copiar</button>
+      <button type="button" class="sec forte" id="baixar" hidden>Salvar arquivo</button>
+    </div>
+  </section>
+
+  <div class="acoes"><button type="button" class="sec" id="limpar">Limpar tudo</button></div>
+
+  <footer>
+    <p>Tudo acontece neste aparelho. O app não envia nada pela internet e funciona sem conexão depois de instalado.</p>
+    <p>Cada conteúdo passa por AES-256-GCM, AES-256-CBC e AES-256-CTR, com chaves independentes geradas a partir da senha por uma derivação lenta de propósito, e termina com um selo de autenticação.</p>
+  </footer>
+</main>
+
+<script>
+'use strict';
+
+/* ===== NÚCLEO ===== */
+const enc = new TextEncoder();
+const dec = new TextDecoder('utf-8', { fatal: true });
+
+const MAGIC = Uint8Array.of(0x43, 0x52, 0x50, 0x33);       // "CRP3"
+const VERSAO = 3;
+const TAM_SAL = 32, TAM_IV1 = 12, TAM_IV2 = 16, TAM_CTR = 16, TAM_TAG = 64;
+const TAM_CAB = 4 + 1 + 1 + TAM_SAL + TAM_IV1 + TAM_IV2 + TAM_CTR;
+const BLOCO = 256;
+const LIMITE_MB = 50;
+const NIVEIS = {
+  1: { nome: 'Forte',  it512: 1000000, it256: 500000 },
+  2: { nome: 'Máximo', it512: 4000000, it256: 2000000 }
+};
+
+class Erro extends Error {}
+
+function aleatorio(n) { const b = new Uint8Array(n); crypto.getRandomValues(b); return b; }
+
+function juntar(...partes) {
+  let n = 0; for (const p of partes) n += p.length;
+  const o = new Uint8Array(n); let i = 0;
+  for (const p of partes) { o.set(p, i); i += p.length; }
+  return o;
+}
+
+function paraBase64(u8) {
+  let s = ''; const T = 0x8000;
+  for (let i = 0; i < u8.length; i += T) s += String.fromCharCode.apply(null, u8.subarray(i, i + T));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function deBase64(txt) {
+  let t = txt.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+  while (t.length % 4) t += '=';
+  try {
+    const s = atob(t); const u = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+    return u;
+  } catch (e) {
+    throw new Erro('Código inválido. Cole o texto cifrado inteiro.');
+  }
+}
+
+// O tamanho real é gravado dentro do pacote e o resto é enchimento aleatório
+function enquadrar(dados) {
+  const corpo = 4 + dados.length;
+  const falta = (BLOCO - (corpo % BLOCO)) % BLOCO;
+  const out = new Uint8Array(corpo + falta);
+  new DataView(out.buffer).setUint32(0, dados.length);
+  out.set(dados, 4);
+  if (falta) out.set(aleatorio(falta), corpo);
+  return out;
+}
+
+function desenquadrar(buf) {
+  if (buf.length < 4) throw new Erro('Conteúdo corrompido.');
+  const n = new DataView(buf.buffer, buf.byteOffset, buf.byteLength).getUint32(0);
+  if (n > buf.length - 4) throw new Erro('Conteúdo corrompido.');
+  return buf.slice(4, 4 + n);
+}
+
+// Senha -> chave mestra, em duas derivações lentas e diferentes (SHA-512 e SHA-256)
+async function esticar(senha, sal, nivel) {
+  const p = NIVEIS[nivel];
+  const base1 = await crypto.subtle.importKey('raw', enc.encode(senha.normalize('NFKC')), 'PBKDF2', false, ['deriveBits']);
+  const k1 = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-512', salt: sal, iterations: p.it512 }, base1, 512));
+  const base2 = await crypto.subtle.importKey('raw', k1, 'PBKDF2', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: sal.slice().reverse(), iterations: p.it256 }, base2, 512));
+}
+
+// Chave mestra -> 4 chaves independentes (uma por camada + uma do selo)
+async function prepararChaves(mestre, sal) {
+  const hk = await crypto.subtle.importKey('raw', mestre, 'HKDF', false, ['deriveBits']);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-512', salt: sal, info: enc.encode('cofre/camadas/v3') }, hk, 8 * 160));
+  return {
+    gcm: await crypto.subtle.importKey('raw', bits.slice(0, 32),   'AES-GCM', false, ['encrypt', 'decrypt']),
+    cbc: await crypto.subtle.importKey('raw', bits.slice(32, 64),  'AES-CBC', false, ['encrypt', 'decrypt']),
+    ctr: await crypto.subtle.importKey('raw', bits.slice(64, 96),  'AES-CTR', false, ['encrypt', 'decrypt']),
+    mac: await crypto.subtle.importKey('raw', bits.slice(96, 160), { name: 'HMAC', hash: 'SHA-512' }, false, ['sign', 'verify'])
+  };
+}
+
+async function criptografar(dados, senha, nivel, avisar) {
+  const sal = aleatorio(TAM_SAL), iv1 = aleatorio(TAM_IV1), iv2 = aleatorio(TAM_IV2), ctr = aleatorio(TAM_CTR);
+  const cab = juntar(MAGIC, Uint8Array.of(VERSAO, nivel), sal, iv1, iv2, ctr);
+
+  await avisar('Esticando a senha…', 0);
+  const mestre = await esticar(senha, sal, nivel);
+  const k = await prepararChaves(mestre, sal);
+  const quadro = enquadrar(dados);
+
+  await avisar('Camada 1 de 3: AES-GCM', 1);
+  const c1 = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv1, additionalData: cab, tagLength: 128 }, k.gcm, quadro));
+  await avisar('Camada 2 de 3: AES-CBC', 2);
+  const c2 = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv: iv2 }, k.cbc, c1));
+  await avisar('Camada 3 de 3: AES-CTR', 3);
+  const c3 = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CTR', counter: ctr, length: 64 }, k.ctr, c2));
+
+  const corpo = juntar(cab, c3);
+  const tag = new Uint8Array(await crypto.subtle.sign('HMAC', k.mac, corpo));
+  return juntar(corpo, tag);
+}
+
+async function descriptografar(pacote, senha, avisar) {
+  if (pacote.length < TAM_CAB + TAM_TAG + 16) throw new Erro('Conteúdo inválido ou incompleto.');
+  for (let i = 0; i < 4; i++) {
+    if (pacote[i] !== MAGIC[i]) throw new Erro('Isso não parece ter sido criptografado por este app.');
+  }
+  if (pacote[4] !== VERSAO) throw new Erro('Versão do conteúdo não suportada.');
+  const nivel = pacote[5];
+  if (!NIVEIS[nivel]) throw new Erro('Conteúdo inválido.');
+
+  let p = 6;
+  const sal = pacote.slice(p, p += TAM_SAL);
+  const iv1 = pacote.slice(p, p += TAM_IV1);
+  const iv2 = pacote.slice(p, p += TAM_IV2);
+  const ctr = pacote.slice(p, p += TAM_CTR);
+  const cab = pacote.slice(0, TAM_CAB);
+  const corpo = pacote.slice(TAM_CAB, pacote.length - TAM_TAG);
+  const tag = pacote.slice(pacote.length - TAM_TAG);
+
+  await avisar('Esticando a senha…', 0);
+  const mestre = await esticar(senha, sal, nivel);
+  const k = await prepararChaves(mestre, sal);
+
+  // O selo é conferido ANTES de decifrar qualquer coisa
+  const ok = await crypto.subtle.verify('HMAC', k.mac, tag, pacote.subarray(0, pacote.length - TAM_TAG));
+  if (!ok) throw new Erro('Senha errada ou conteúdo alterado.');
+
+  try {
+    await avisar('Removendo camada 1 de 3: AES-CTR', 1);
+    const c2 = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-CTR', counter: ctr, length: 64 }, k.ctr, corpo));
+    await avisar('Removendo camada 2 de 3: AES-CBC', 2);
+    const c1 = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-CBC', iv: iv2 }, k.cbc, c2));
+    await avisar('Removendo camada 3 de 3: AES-GCM', 3);
+    const quadro = new Uint8Array(await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv1, additionalData: cab, tagLength: 128 }, k.gcm, c1));
+    return desenquadrar(quadro);
+  } catch (e) {
+    if (e instanceof Erro) throw e;
+    throw new Erro('Conteúdo corrompido.');
+  }
+}
+
+/* ===== INTERFACE ===== */
+const $ = (id) => document.getElementById(id);
+const estado = { modo: 'cifrar', tipo: 'texto', blobUrl: null, nomeSaida: '', ocupado: false };
+
+function mostrarStatus(msg, classe) {
+  const s = $('status');
+  s.textContent = msg || '';
+  s.className = classe || '';
+}
+
+function lacre(fase) {
+  $('lacre').dataset.fase = String(fase);
+  const f = fase === 'idle' ? -1 : Number(fase);
+  $('p0').classList.toggle('girando', f === 0);
+  $('p0').classList.toggle('cheio', f >= 1);
+  for (let i = 1; i <= 3; i++) $('p' + i).classList.toggle('cheio', f >= i);
+}
+
+function avisar(msg, fase) {
+  mostrarStatus(msg);
+  lacre(fase);
+  return new Promise((r) => setTimeout(r, 40));   // dá tempo da tela atualizar
+}
+
+function formatarTamanho(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1).replace('.', ',') + ' KB';
+  return (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
+}
+
+function limparResultado() {
+  if (estado.blobUrl) { URL.revokeObjectURL(estado.blobUrl); estado.blobUrl = null; }
+  estado.nomeSaida = '';
+  $('resultado').value = '';
+  $('saida').hidden = true;
+  $('infoSaida').hidden = true;
+  mostrarStatus('');
+  lacre('idle');
+}
+
+function atualizarTela() {
+  const cifrar = estado.modo === 'cifrar';
+  const texto = estado.tipo === 'texto';
+  document.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.modo === estado.modo)));
+  document.querySelectorAll('[data-tipo]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tipo === estado.tipo)));
+  $('campoTexto').hidden = !texto;
+  $('campoArquivo').hidden = texto;
+  $('rotEntrada').textContent = cifrar ? 'Texto para criptografar' : 'Texto cifrado para descriptografar';
+  $('rotArquivo').textContent = cifrar ? 'Arquivo para criptografar' : 'Arquivo .enc para descriptografar';
+  $('blocoRepetir').hidden = !cifrar;
+  $('blocoNivel').hidden = !cifrar;
+  $('dicaSenha').hidden = !cifrar;
+  $('forca').hidden = !cifrar;
+  $('ir').textContent = cifrar ? 'Criptografar' : 'Descriptografar';
+  $('rotSaida').textContent = cifrar ? 'Texto cifrado' : 'Texto original';
+  atualizarForca();
+}
+
+function avaliarSenha(s) {
+  if (!s) return { n: 0, t: '' };
+  let pts = Math.min(s.length, 24) / 24 * 2.4;
+  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(s)).length;
+  pts += (classes - 1) * 0.4;
+  if (/(.)\1{3,}/.test(s)) pts -= 0.5;
+  const n = pts < 1 ? 1 : pts < 2 ? 2 : pts < 3 ? 3 : 4;
+  return { n, t: ['', 'Fraca', 'Razoável', 'Boa', 'Excelente'][n] };
+}
+
+function atualizarForca() {
+  const r = avaliarSenha($('senha').value);
+  $('forca').dataset.n = String(r.n);
+  $('forcaTxt').textContent = r.t;
+}
+
+function ocupar(sim) {
+  estado.ocupado = sim;
+  $('ir').disabled = sim;
+  const cifrar = estado.modo === 'cifrar';
+  $('ir').textContent = sim ? 'Trabalhando…' : (cifrar ? 'Criptografar' : 'Descriptografar');
+}
+
+async function executar() {
+  if (estado.ocupado) return;
+  limparResultado();
+  try {
+    const senha = $('senha').value;
+    if (!senha) throw new Erro('Digite uma senha.');
+    const cifrar = estado.modo === 'cifrar';
+    if (cifrar && senha !== $('senha2').value) throw new Erro('As senhas não são iguais.');
+    const nivel = Number(document.querySelector('input[name="nivel"]:checked').value);
+
+    let dados, nomeArq = '';
+    if (estado.tipo === 'texto') {
+      const t = $('entrada').value;
+      if (!t.trim()) throw new Erro(cifrar ? 'Digite o texto que será criptografado.' : 'Cole o texto cifrado.');
+      dados = cifrar ? enc.encode(t) : deBase64(t);
+    } else {
+      const f = $('arquivo').files[0];
+      if (!f) throw new Erro('Escolha um arquivo.');
+      if (f.size > LIMITE_MB * 1048576) throw new Erro('Arquivo grande demais. O limite é de ' + LIMITE_MB + ' MB.');
+      dados = new Uint8Array(await f.arrayBuffer());
+      nomeArq = f.name;
+    }
+
+    ocupar(true);
+    const saida = cifrar
+      ? await criptografar(dados, senha, nivel, avisar)
+      : await descriptografar(dados, senha, avisar);
+
+    if (estado.tipo === 'texto') {
+      let txt;
+      if (cifrar) txt = paraBase64(saida);
+      else {
+        try { txt = dec.decode(saida); }
+        catch (e) { throw new Erro('O conteúdo não é um texto. Use a aba Arquivo.'); }
+      }
+      $('resultado').hidden = false;
+      $('copiar').hidden = false;
+      $('baixar').hidden = true;
+      $('resultado').value = txt;
+    } else {
+      estado.nomeSaida = cifrar ? nomeArq + '.enc' : (/\.enc$/i.test(nomeArq) ? nomeArq.slice(0, -4) : nomeArq + '.dec');
+      estado.blobUrl = URL.createObjectURL(new Blob([saida], { type: 'application/octet-stream' }));
+      $('resultado').hidden = true;
+      $('copiar').hidden = true;
+      $('baixar').hidden = false;
+      $('infoSaida').textContent = estado.nomeSaida + ' · ' + formatarTamanho(saida.length);
+      $('infoSaida').hidden = false;
+    }
+    $('saida').hidden = false;
+    lacre(4);
+    mostrarStatus(cifrar ? 'Pronto. Conteúdo criptografado.' : 'Pronto. Conteúdo recuperado.', 'ok');
+  } catch (e) {
+    lacre('idle');
+    mostrarStatus(e instanceof Erro ? e.message : 'Algo deu errado. Confira os dados e tente de novo.', 'erro');
+  } finally {
+    ocupar(false);
+  }
+}
+
+async function copiar() {
+  const campo = $('resultado');
+  try {
+    await navigator.clipboard.writeText(campo.value);
+  } catch (e) {
+    campo.focus(); campo.select();
+    try { document.execCommand('copy'); } catch (e2) { /* sem cópia automática */ }
+  }
+  mostrarStatus('Copiado.', 'ok');
+}
+
+function baixar() {
+  if (!estado.blobUrl) return;
+  const a = document.createElement('a');
+  a.href = estado.blobUrl;
+  a.download = estado.nomeSaida;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+function limparTudo() {
+  limparResultado();
+  $('entrada').value = '';
+  $('arquivo').value = '';
+  $('senha').value = '';
+  $('senha2').value = '';
+  atualizarForca();
+}
+
+document.querySelectorAll('[data-modo]').forEach((b) => b.addEventListener('click', () => {
+  estado.modo = b.dataset.modo; limparResultado(); atualizarTela();
+}));
+document.querySelectorAll('[data-tipo]').forEach((b) => b.addEventListener('click', () => {
+  estado.tipo = b.dataset.tipo; limparResultado(); atualizarTela();
+}));
+$('senha').addEventListener('input', atualizarForca);
+$('ver').addEventListener('click', () => {
+  const mostrar = $('senha').type === 'password';
+  $('senha').type = mostrar ? 'text' : 'password';
+  $('senha2').type = mostrar ? 'text' : 'password';
+  $('ver').textContent = mostrar ? 'Ocultar' : 'Mostrar';
+  $('ver').setAttribute('aria-pressed', String(mostrar));
+});
+$('ir').addEventListener('click', executar);
+$('copiar').addEventListener('click', copiar);
+$('baixar').addEventListener('click', baixar);
+$('limpar').addEventListener('click', limparTudo);
+
+// Instalar como app
+let convite = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); convite = e; $('instalar').hidden = false; });
+$('instalar').addEventListener('click', async () => {
+  if (!convite) return;
+  convite.prompt(); await convite.userChoice; convite = null; $('instalar').hidden = true;
+});
+window.addEventListener('appinstalled', () => { $('instalar').hidden = true; });
+
+// Funcionar sem internet
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+if (!window.isSecureContext || !(window.crypto && crypto.subtle)) {
+  $('avisoSeguro').hidden = false;
+  $('ir').disabled = true;
+}
+atualizarTela();
+</script>
+</body>
+</html>
